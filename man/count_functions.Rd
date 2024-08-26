@@ -24,7 +24,8 @@ count_messages(
   buffer_size = -1,
   quiet = FALSE,
   force_gunzip = FALSE,
-  force_cleanup = FALSE
+  gz_dir = tempdir(),
+  force_cleanup = TRUE
 )
 
 count_orders(x)
@@ -65,6 +66,9 @@ count_rpii(x)
 \item{force_gunzip}{only applies if file is a gz-file and a file with the same (gunzipped) name already exists.
 if set to TRUE, the existing file is overwritten. Default value is FALSE}
 
+\item{gz_dir}{a directory where the gz archive is extracted to.
+Only applies if file is a gz archive. Default is \code{\link[=tempdir]{tempdir()}}.}
+
 \item{force_cleanup}{only applies if file is a gz-file. If force_cleanup=TRUE, the gunzipped raw file will be deleted afterwards.}
 
 \item{x}{a file or a data.table containing the message types and the counts,
@@ -72,91 +76,89 @@ as outputted by \code{count_messages}}
 }
 \value{
 a data.table containing the message-type and their counts for \code{count_messages}
- or an integer value for the other functions.
+or an integer value for the other functions.
 }
 \description{
 Counts the messages of an ITCH-file
 }
 \details{
 \itemize{
- \item{\code{count_orders}: Counts order messages. Message type \code{A} and 
-   \code{F}}
+\item \code{count_orders}: Counts order messages. Message type \code{A} and \code{F}
 }
 
 \itemize{
- \item{\code{count_trades}: Counts trade messages. Message type \code{P}, 
-   \code{Q} and \code{B}}
+\item \code{count_trades}: Counts trade messages. Message type \code{P}, \code{Q} and \code{B}
 }
 
 \itemize{
- \item{\code{count_modifications}: Counts order modification messages. Message 
-   type \code{E}, \code{C}, \code{X}, \code{D}, and \code{U}}
+\item \code{count_modifications}: Counts order modification messages. Message
+type \code{E}, \code{C}, \code{X}, \code{D}, and \code{U}
 }
 
 \itemize{
- \item{\code{count_system_events}: Counts system event messages. Message type 
-   \code{S}}
+\item \code{count_system_events}: Counts system event messages. Message type \code{S}
 }
 
 \itemize{
- \item{\code{count_stock_directory}: Counts stock trading messages. Message 
-   type \code{R}}
+\item \code{count_stock_directory}: Counts stock trading messages. Message
+type \code{R}
 }
 
 \itemize{
- \item{\code{count_trading_status}: Counts trading status messages. Message 
-   type \code{H} and \code{h}}
+\item \code{count_trading_status}: Counts trading status messages. Message
+type \code{H} and \code{h}
 }
 
 \itemize{
- \item{\code{count_reg_sho}: Counts messages regarding reg SHO. Message type 
-   \code{Y}}
+\item \code{count_reg_sho}: Counts messages regarding reg SHO. Message type
+\code{Y}
 }
 
 \itemize{
- \item{\code{count_market_participant_states}: Counts messages regarding the 
-   status of market participants. Message type \code{L}}
+\item \code{count_market_participant_states}: Counts messages regarding the
+status of market participants. Message type \code{L}
 }
 
 \itemize{
- \item{\code{count_mwcb}: Counts messages regarding Market-Wide-Circuit-Breakers
-   (MWCB). Message type \code{V} and \code{W}}
+\item \code{count_mwcb}: Counts messages regarding Market-Wide-Circuit-Breakers
+(MWCB). Message type \code{V} and \code{W}
 }
 
 \itemize{
- \item{\code{count_ipo}: Counts messages regarding IPOs. Message type \code{K}}
+\item \code{count_ipo}: Counts messages regarding IPOs. Message type \code{K}
 }
 
 \itemize{
- \item{\code{count_luld}: Counts messages regarding LULDs (limit up-limit down)
-   auction collars. Message type \code{J}}
+\item \code{count_luld}: Counts messages regarding LULDs (limit up-limit down)
+auction collars. Message type \code{J}
 }
 
 \itemize{
- \item{\code{count_noii}: Counts Net Order Imbalance Indicatio (NOII) messages. 
-   Message type \code{I}}
+\item \code{count_noii}: Counts Net Order Imbalance Indicatio (NOII) messages.
+Message type \code{I}
 }
 
 \itemize{
- \item{\code{count_rpii}: Counts Retail Price Improvement Indicator (RPII) 
-   messages. Message type \code{N}}
+\item \code{count_rpii}: Counts Retail Price Improvement Indicator (RPII)
+messages. Message type \code{N}
 }
 }
 \examples{
 file <- system.file("extdata", "ex20101224.TEST_ITCH_50", package = "RITCH")
 count_messages(file)
-count_messages(file, add_meta_data = TRUE)
+count_messages(file, add_meta_data = TRUE, quiet = TRUE)
 
+# file can also be a .gz file
 gz_file <- system.file("extdata", "ex20101224.TEST_ITCH_50.gz", package = "RITCH")
-count_messages(gz_file)
+count_messages(gz_file, quiet = TRUE)
 
 # count only a specific class
-msg_count <- count_messages(file)
+msg_count <- count_messages(file, quiet = TRUE)
 
 # either count based on a given data.table outputted by count_messages
 count_orders(msg_count)
 
-# or count messages in a file
+# or count orders from a file and not from a msg_count
 count_orders(file)
 
 ### Specific class count functions are:

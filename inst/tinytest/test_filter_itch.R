@@ -2,9 +2,28 @@ library(RITCH)
 library(tinytest)
 library(data.table)
 suppressPackageStartupMessages(library(bit64))
+setDTthreads(2)
 
 infile <- system.file("extdata", "ex20101224.TEST_ITCH_50", package = "RITCH")
-outfile <- "testfile_20101224.TEST_ITCH_50"
+outfile <- file.path(tempdir(), "testfile_20101224.TEST_ITCH_50")
+
+
+################################################################################
+# Test that filtering for all trades returns all data entries
+orig <- read_itch(infile, quiet = TRUE)
+trades <- read_trades(infile, quiet = TRUE)
+expect_equal(orig$trades, trades)
+
+res <- read_itch(infile, quiet = TRUE, filter_msg_class = "trades",
+                 filter_stock_locate = c(1, 2, 3), min_timestamp = 1,
+                 max_timestamp = 6e14, filter_msg_type = "P")
+expect_equal(res, trades)
+
+filter_itch(infile, outfile, filter_msg_class = "trades", quiet = TRUE)
+res <- read_itch(outfile, quiet = TRUE)
+expect_equal(res$trades, trades)
+unlink(outfile)
+
 
 ################################################################################
 # Test that the first and last messages are parsed
@@ -14,16 +33,17 @@ of <- filter_itch(infile, outfile, filter_msg_class = "system_events", quiet = T
 expect_equal(of, outfile)
 
 unlink(of)
-of <- filter_itch(infile, "testfile", filter_msg_class = "system_events", quiet = TRUE)
+tmpfile <- tempfile("testfile")
+of <- filter_itch(infile, tmpfile, filter_msg_class = "system_events", quiet = TRUE)
 
 # the outfile name is correctly constructed!
-expect_equal(of, outfile)
+expect_equal(of, paste0(tmpfile, "_20101224.TEST_ITCH_50"))
 
 # test file contents
-expect_equal(file.size(outfile), 84)
-df <- read_system_events(outfile, quiet = TRUE)
+expect_equal(file.size(of), 84)
+df <- read_system_events(of, quiet = TRUE)
 expect_equal(nrow(df), 6)
-unlink(outfile)
+unlink(of)
 
 ################################################################################
 ################################################################################
@@ -57,7 +77,7 @@ unlink(outfile)
 ################################################################################
 # Test Append
 filter_itch(infile, outfile, filter_msg_class = "orders", quiet = TRUE)
-filter_itch(infile, outfile, filter_msg_class = "orders", append = TRUE, 
+filter_itch(infile, outfile, filter_msg_class = "orders", append = TRUE,
             quiet = TRUE)
 
 df <- read_orders(outfile, quiet = TRUE)
@@ -72,7 +92,7 @@ unlink(outfile)
 ################################################################################
 # Test smaller buffer_size
 
-filter_itch(infile, outfile, filter_msg_class = "orders", 
+filter_itch(infile, outfile, filter_msg_class = "orders",
             buffer_size = 50,
             quiet = TRUE)
 
@@ -110,7 +130,7 @@ expect_equal(file.size(outfile), 333876)
 # check that the output file contains only orders
 df <- read_itch(outfile, quiet = TRUE)
 exp_count <- c(
-  stock_directory = 2L, trading_status = 2L, 
+  stock_directory = 2L, trading_status = 2L,
   orders = 4050L, modifications = 1626L, trades = 3115L
 )
 expect_equal(sapply(df, nrow), exp_count)
@@ -126,14 +146,14 @@ unlink(outfile)
 stock_sel <- c("BOB", "CHAR")
 sdir <- data.table(stock = stock_sel,
                    stock_locate = c(2, 3))
-filter_itch(infile, outfile, filter_stock = stock_sel, stock_directory = sdir, 
+filter_itch(infile, outfile, filter_stock = stock_sel, stock_directory = sdir,
             quiet = TRUE)
 
 expect_equal(file.size(outfile), 333876)
 # check that the output file contains only orders
 df <- read_itch(outfile, quiet = TRUE)
 exp_count <- c(
-  stock_directory = 2L, trading_status = 2L, 
+  stock_directory = 2L, trading_status = 2L,
   orders = 4050L, modifications = 1626L, trades = 3115L
 )
 expect_equal(sapply(df, nrow), exp_count)
@@ -162,7 +182,11 @@ expect_error(
   filter_itch(infile, outfile, min_timestamp = 1:2, quiet = TRUE)
 )
 expect_error(
-  filter_itch(infile, outfile, min_timestamp = 1:2, max_timestamp = 1:3, 
+  filter_itch(infile, outfile, min_timestamp = 1:2, max_timestamp = 1:3,
+              quiet = TRUE)
+)
+expect_error(
+  filter_itch(infile, outfile, min_timestamp = 1, max_timestamp = 1:3,
               quiet = TRUE)
 )
 
@@ -179,6 +203,12 @@ exp_count <- c(
   system_events = 3L, orders = 2501L, modifications = 979L, trades = 2598L
 )
 expect_equal(sapply(df, nrow), exp_count)
+
+# read-in all data and filter the data manually
+df_all <- read_itch(infile, quiet = TRUE)
+df_all_f <- lapply(df, function(d) d[timestamp >= ms, ])
+expect_equal(df_all_f, df)
+
 # check that for all classes the min timestamp is larger than the expected value
 expect_true(get_func_of_ts(df, min) >= ms)
 
@@ -200,6 +230,12 @@ exp_count <- c(
   orders = 2500L, modifications = 1021L, trades = 2402L
 )
 expect_equal(sapply(df, nrow), exp_count)
+
+# read-in all data and filter the data manually
+df_all <- read_itch(infile, quiet = TRUE)
+df_all_f <- lapply(df, function(d) d[timestamp <= ms, ])
+expect_equal(df_all_f, df)
+
 # check that for all classes the max timestamp is smaller than the expected value
 expect_true(get_func_of_ts(df, max) <= ms)
 
@@ -212,22 +248,28 @@ unlink(outfile)
 ## min and max
 min_ts <- as.integer64(45463537089764)
 max_ts <- as.integer64(51233773867238)
-filter_itch(infile, outfile, min_timestamp = min_ts, max_timestamp = max_ts, 
+filter_itch(infile, outfile, min_timestamp = min_ts, max_timestamp = max_ts,
             quiet = TRUE)
 
 expect_equal(file.size(outfile), 138558)
+
 # check that the output file contains only orders
 df <- read_itch(outfile, quiet = TRUE)
-exp_count <- c(
-  orders = 1501L, modifications = 598L, trades = 1477L
-)
+exp_count <- c(orders = 1501L, modifications = 598L, trades = 1477L)
 expect_equal(sapply(df, nrow), exp_count)
+
+# read-in all data and filter the data manually
+df_all <- read_itch(infile, quiet = TRUE)
+df_all_f <- lapply(df, function(d) d[timestamp >= min_ts & timestamp <= max_ts, ])
+expect_equal(df_all_f, df)
+
+
 # check that for all classes the max timestamp is smaller than the expected value
 dd <- df[sapply(df, nrow) != 0]
-expect_true(get_func_of_ts(df, min) <= min_ts)
+expect_true(get_func_of_ts(df, min) >= min_ts)
 expect_true(get_func_of_ts(df, max) <= max_ts)
 
-df2 <- read_itch(infile, min_timestamp = min_ts, max_timestamp = max_ts, 
+df2 <- read_itch(infile, min_timestamp = min_ts, max_timestamp = max_ts,
                  quiet = TRUE)
 expect_equal(df, df2)
 unlink(outfile)
@@ -275,7 +317,7 @@ unlink(outfile)
 # skip the first 4000 messages for each message class
 # expect to see 5000-4000 trades and 5000-4000 orders
 filter_itch(
-  infile, outfile, 
+  infile, outfile,
   skip = 4000,
   quiet = TRUE
 )
@@ -295,7 +337,7 @@ min_ts <- 40505246803501 # Q1 of all orders
 max_ts <- 49358420393946 # Q3 of all orders
 
 filter_itch(
-  infile, outfile, 
+  infile, outfile,
   filter_msg_class = c("orders", "trades"),
   filter_stock_locate = c(1, 3),
   filter_msg_type = "D",
@@ -307,9 +349,9 @@ filter_itch(
 expect_equal(file.size(outfile), 10500)
 
 # check that the output file contains the same
-filtered_res  <- read_itch(outfile, c("orders", "trades", "modifications"), 
+filtered_res  <- read_itch(outfile, c("orders", "trades", "modifications"),
                            quiet = TRUE)
-expect_equal(sapply(filtered_res, nrow), 
+expect_equal(sapply(filtered_res, nrow),
              c(orders = 100, trades = 100, modifications = 100))
 
 # read in the original file, and apply the same filters to each class
@@ -317,8 +359,8 @@ df_orig <- read_itch(infile,  c("orders", "trades", "modifications"),
                      quiet = TRUE)
 # apply the filters
 msg_types <- c('D', 'A', 'F', 'P', 'Q', 'B')
-df_orig_res <- lapply(df_orig, function(d) 
-  d[msg_type %in% msg_types & 
+df_orig_res <- lapply(df_orig, function(d)
+  d[msg_type %in% msg_types &
       stock_locate %in% c(1, 3) &
       timestamp > min_ts & timestamp < max_ts][1:100,]
 )
@@ -329,30 +371,32 @@ unlink(outfile)
 
 ################################################################################
 # filter_itch works on gz input files
-infile <- system.file("extdata", "ex20101224.TEST_ITCH_50.gz", package = "RITCH")
+gzinfile <- system.file("extdata", "ex20101224.TEST_ITCH_50.gz", package = "RITCH")
+tmpoutfile <- file.path(tempdir(), "gz_testfile_20101224.TEST_ITCH_50")
 
-outfile <- filter_itch(infile, outfile, filter_msg_class = "orders", 
-                       quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
-expect_equal(file.size(outfile), 190012)
+rawoutfile <- filter_itch(gzinfile, tmpoutfile, filter_msg_class = "orders",
+                          quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
+expect_equal(rawoutfile, tmpoutfile)
+expect_equal(file.size(rawoutfile), 190012)
 
-odf <- read_orders(outfile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
-idf <- read_orders(infile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
+odf <- read_orders(rawoutfile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
+idf <- read_orders(gzinfile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
 expect_equal(odf, idf)
-unlink(outfile)
+unlink(rawoutfile)
 
 
 ################################################################################
 # works also on gz-output files
-outfile <- "gz_testfile_20101224.TEST_ITCH_50"
+rawoutfile <- filter_itch(gzinfile, tmpoutfile, filter_msg_class = "orders", gz = TRUE,
+                          quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
 
-gzoutfile <- filter_itch(infile, outfile, filter_msg_class = "orders", gz = TRUE,
-                         quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
+expect_equal(rawoutfile, paste0(tmpoutfile, ".gz"))
+expect_true(file.exists(rawoutfile))
+expect_equal(file.size(rawoutfile), 72619)
 
-expect_true(file.exists(gzoutfile))
-expect_equal(file.size(gzoutfile), 72619)
-
-odf <- read_orders(gzoutfile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
-idf <- read_orders(infile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
+odf <- read_orders(rawoutfile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
+idf <- read_orders(gzinfile, quiet = TRUE, force_gunzip = TRUE, force_cleanup = TRUE)
 
 expect_equal(odf, idf)
-unlink(gzoutfile)
+unlink(rawoutfile)
+unlink(tmpoutfile)

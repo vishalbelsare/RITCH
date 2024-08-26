@@ -1,12 +1,13 @@
 library(RITCH)
 library(tinytest)
+setDTthreads(2)
 
 # check that using gunzip_file and gzip_file return the same files as the originals!
 raw_file <- system.file("extdata", "ex20101224.TEST_ITCH_50", package = "RITCH")
 gz_file  <- system.file("extdata", "ex20101224.TEST_ITCH_50.gz", package = "RITCH")
 
-tmpfile <- "raw_20101224.TEST_ITCH_50"
-tmpfile2 <- "gz_20101224.TEST_ITCH_50.gz"
+tmpfile <- file.path(tempdir(), "raw_20101224.TEST_ITCH_50")
+tmpfile2 <- file.path(tempdir(), "gz_20101224.TEST_ITCH_50.gz")
 
 expect_true(file.exists(raw_file))
 expect_true(file.exists(gz_file))

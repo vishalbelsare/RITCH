@@ -32,15 +32,13 @@ The filename of the unzipped file, invisibly
 Allows the compression and uncompression of files
 }
 \details{
-
-
-\itemize{
- \item{\code{gunzip_file}: uncompresses a gz-archive to raw binary data}
-}
+Functions are
 
 \itemize{
- \item{\code{gzip_file}: compresses a raw binary data file to a gz-archive}
+\item \code{gunzip_file}: uncompresses a gz-archive to raw binary data
 }
+
+-\code{gzip_file}: compresses a raw binary data file to a gz-archive
 }
 \examples{
 gzfile <- system.file("extdata", "ex20101224.TEST_ITCH_50.gz", package = "RITCH")

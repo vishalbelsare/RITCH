@@ -1,0 +1,1 @@
+Fix bug where the gz functionality would write to the current directory or to the user library.
